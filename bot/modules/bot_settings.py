@@ -34,6 +34,7 @@ from bot import (
     excluded_extensions,
     auth_chats,
     sudo_users,
+    scheduler,
 )
 from bot.core.config_manager import Config
 from bot.helper.themes import BotTheme
@@ -368,11 +369,15 @@ async def edit_variable(_, message, pre_message, key):
         if drives_names and drives_names[0] == "Main":
             drives_ids[0] = value
         else:
+            drives_names.insert(0, "Main")
             drives_ids.insert(0, value)
+            index_urls.insert(0, Config.INDEX_URL)
     elif key == "INDEX_URL":
         if drives_names and drives_names[0] == "Main":
             index_urls[0] = value
         else:
+            drives_names.insert(0, "Main")
+            drives_ids.insert(0, Config.GDRIVE_ID)
             index_urls.insert(0, value)
     elif key == "LINKS_LOG_ID":
         if value.strip():
@@ -469,6 +474,60 @@ async def edit_variable(_, message, pre_message, key):
         await _restart_web_server()
     elif key == "RSS_DELAY":
         add_job()
+    elif key == "RSS_CHAT":
+        if value:
+            try:
+                scheduler.resume_job("0")
+            except Exception:
+                pass
+        else:
+            try:
+                scheduler.pause_job("0")
+            except Exception:
+                pass
+    elif key == "USER_SESSION_STRING":
+        if TgClient.user:
+            try:
+                await TgClient.user.stop()
+            except Exception:
+                pass
+            TgClient.user = None
+        if value:
+            try:
+                await TgClient.start_user()
+            except Exception as e:
+                LOGGER.error(f"Failed to start user client: {e}")
+    elif key == "HELPER_TOKENS":
+        if TgClient.helper_bots:
+            await gather(*[h_bot.stop() for h_bot in TgClient.helper_bots.values()])
+            TgClient.helper_bots.clear()
+        if value:
+            try:
+                await TgClient.start_helper_bots()
+            except Exception as e:
+                LOGGER.error(f"Failed to start helper bots: {e}")
+    elif key == "DATABASE_URL":
+        await database.disconnect()
+        if value:
+            try:
+                await database.connect()
+            except Exception as e:
+                LOGGER.error(f"Failed to connect to new database: {e}")
+    elif key == "TIMEZONE":
+        try:
+            from pytz import timezone as pytz_tz
+            from datetime import datetime
+            from logging import Formatter
+            tz = pytz_tz(value)
+            def changetz(*args):
+                try:
+                    return datetime.now(tz).timetuple()
+                except Exception:
+                    from time import localtime
+                    return localtime()
+            Formatter.converter = changetz
+        except Exception as e:
+            LOGGER.error(f"Failed to update timezone: {e}")
 
 
 @new_task
@@ -529,6 +588,14 @@ async def edit_universal(_, message, pre_message):
     await update_buttons(pre_message, "universal")
     await delete_message(message)
     await database.update_universal_max_tasks(value)
+    if value > 0:
+        from bot.modules.rss import add_shared_tasks_refresh_job
+        add_shared_tasks_refresh_job()
+    else:
+        try:
+            scheduler.remove_job("shared_tasks_refresh")
+        except Exception:
+            pass
 
 
 async def sync_jdownloader():
@@ -975,10 +1042,39 @@ async def send_bot_settings(_, message):
 
 async def load_config():
     Config.load()
+    if Config.DATABASE_URL:
+        await database.connect()
+        BOT_ID = Config.BOT_TOKEN.split(":", 1)[0]
+        config_dict = await database.db.settings.config.find_one(
+            {"_id": BOT_ID}, {"_id": 0}
+        )
+        if config_dict:
+            Config.load_dict(config_dict)
+
     drives_ids.clear()
     drives_names.clear()
     index_urls.clear()
     await update_variables()
+
+    if Config.RSS_CHAT:
+        try:
+            scheduler.resume_job("0")
+        except Exception:
+            pass
+    else:
+        try:
+            scheduler.pause_job("0")
+        except Exception:
+            pass
+
+    if Config.UNIVERSAL_MAX_TASKS > 0:
+        from bot.modules.rss import add_shared_tasks_refresh_job
+        add_shared_tasks_refresh_job()
+    else:
+        try:
+            scheduler.remove_job("shared_tasks_refresh")
+        except Exception:
+            pass
 
     if not await aiopath.exists("accounts"):
         Config.USE_SERVICE_ACCOUNTS = False
