@@ -178,6 +178,10 @@ class Config:
     @classmethod
     def load_config(cls):
         try:
+            import sys
+            import importlib
+            if "config" in sys.modules:
+                importlib.reload(sys.modules["config"])
             settings = import_module("config")
         except ModuleNotFoundError:
             return

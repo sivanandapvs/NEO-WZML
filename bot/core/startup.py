@@ -307,6 +307,10 @@ async def save_settings():
 
 
 async def update_variables():
+    auth_chats.clear()
+    sudo_users.clear()
+    shortener_dict.clear()
+
     if (
         Config.LEECH_SPLIT_SIZE > TgClient.MAX_SPLIT_SIZE
         or Config.LEECH_SPLIT_SIZE == 2097152000

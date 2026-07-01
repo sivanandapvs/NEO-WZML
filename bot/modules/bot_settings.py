@@ -448,6 +448,7 @@ async def edit_variable(_, message, pre_message, key):
             await send_message(message, f"Invalid dict literal: {e}")
             return
     Config.set(key, value)
+    LOGGER.info("Change var %s = %s: %s", key, value.__class__.__name__.upper(), value)
     await update_buttons(pre_message, "var")
     await delete_message(message)
     await database.update_config({key: value})
@@ -524,6 +525,7 @@ async def edit_universal(_, message, pre_message):
         return await update_buttons(pre_message, "universal")
 
     Config.UNIVERSAL_MAX_TASKS = value
+    LOGGER.info("Change var UNIVERSAL_MAX_TASKS = %s: %s", value.__class__.__name__.upper(), value)
     await update_buttons(pre_message, "universal")
     await delete_message(message)
     await database.update_universal_max_tasks(value)
@@ -608,7 +610,7 @@ async def update_private_file(_, message, pre_message, key, new_file=False):
         return
     if file_name == "rclone.conf":
         await rclone_serve_booter()
-    elif file_name == "list_drives.txt" and await aiopath.exists("list_drives.txt"):
+    elif file_name == "list_drives.txt":
         drives_ids.clear()
         drives_names.clear()
         index_urls.clear()
@@ -616,23 +618,26 @@ async def update_private_file(_, message, pre_message, key, new_file=False):
             drives_names.append("Main")
             drives_ids.append(Config.GDRIVE_ID)
             index_urls.append(Config.INDEX_URL)
-        async with aiopen("list_drives.txt", "r+") as f:
-            lines = await f.readlines()
-            for line in lines:
-                temp = line.strip().split()
-                drives_ids.append(temp[1])
-                drives_names.append(temp[0].replace("_", " "))
-                if len(temp) > 2:
-                    index_urls.append(temp[2])
-                else:
-                    index_urls.append("")
-    elif file_name == "shortener.txt" and await aiopath.exists("shortener.txt"):
-        async with aiopen("shortener.txt", "r+") as f:
-            lines = await f.readlines()
-            for line in lines:
-                temp = line.strip().split()
-                if len(temp) == 2:
-                    shortener_dict[temp[0]] = temp[1]
+        if await aiopath.exists("list_drives.txt"):
+            async with aiopen("list_drives.txt", "r+") as f:
+                lines = await f.readlines()
+                for line in lines:
+                    temp = line.strip().split()
+                    drives_ids.append(temp[1])
+                    drives_names.append(temp[0].replace("_", " "))
+                    if len(temp) > 2:
+                        index_urls.append(temp[2])
+                    else:
+                        index_urls.append("")
+    elif file_name == "shortener.txt":
+        shortener_dict.clear()
+        if await aiopath.exists("shortener.txt"):
+            async with aiopen("shortener.txt", "r+") as f:
+                lines = await f.readlines()
+                for line in lines:
+                    temp = line.strip().split()
+                    if len(temp) == 2:
+                        shortener_dict[temp[0]] = temp[1]
     await update_buttons(pre_message, key)
     await database.update_private_file(file_name)
 
@@ -751,6 +756,7 @@ async def edit_bot_settings(client, query):
         elif data[2] == "SUDO_USERS":
             sudo_users.clear()
         Config.set(data[2], value)
+        LOGGER.info("Change var %s = %s: %s", data[2], value.__class__.__name__.upper(), value)
         await update_buttons(message, "var")
         if data[2] == "DATABASE_URL":
             await database.disconnect()
@@ -835,6 +841,7 @@ async def edit_bot_settings(client, query):
         new_value = value == "on"
 
         Config.set(key, new_value)
+        LOGGER.info("Change var %s = %s: %s", key, new_value.__class__.__name__.upper(), new_value)
 
         if Config.DATABASE_URL:
             await database.update_config({key: new_value})
