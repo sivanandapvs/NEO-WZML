@@ -1148,6 +1148,7 @@ config_descriptions = {
     "SEARCH_LIMIT": "Max results per site from torrent search. 0 = API default",
 
     "JD_MODE": "Enable JDownloader for premium host support. Requires JD_EMAIL and JD_PASS",
+    "USERBOT_LEECH": "Use User Session client (Userbot) for all Leech uploads instead of Bot client for maximum speed",
     "JD_EMAIL": "my.jdownloader.org account email for JDownloader sync",
     "JD_PASS": "my.jdownloader.org account password for JDownloader sync",
     "MEGA_ENABLED": "Enable Mega.nz downloads",

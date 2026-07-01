@@ -179,7 +179,7 @@ class TelegramUploader:
         return True
 
     async def _switching_client(self):
-        if self._prm_media and TgClient.IS_PREMIUM_USER:
+        if (self._prm_media and TgClient.IS_PREMIUM_USER) or (TgClient.user and Config.USERBOT_LEECH):
             self._user_session = True
             self._client = TgClient.user
         else:

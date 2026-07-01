@@ -146,6 +146,7 @@ class Config:
     UPDATE_PKGS = True
     UPGRADE_PACKAGES = False
     USER_SESSION_STRING = ""
+    USERBOT_LEECH = False
     USE_SERVICE_ACCOUNTS = False
     WEB_PINCODE = True
     YT_DLP_OPTIONS = {}
