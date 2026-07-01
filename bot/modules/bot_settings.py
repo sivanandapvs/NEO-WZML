@@ -825,9 +825,6 @@ async def edit_bot_settings(client, query):
         Config.set(data[2], value)
         LOGGER.info("Change var %s = %s: %s", data[2], value.__class__.__name__.upper(), value)
         await update_buttons(message, "var")
-        if data[2] == "DATABASE_URL":
-            await database.disconnect()
-        await database.update_config({data[2]: value})
         if data[2] in ["SEARCH_PLUGINS", "SEARCH_API_LINK"]:
             await initiate_search_tools()
         elif data[2] in ["QUEUE_ALL", "QUEUE_DOWNLOAD", "QUEUE_UPLOAD"]:
@@ -841,6 +838,63 @@ async def edit_bot_settings(client, query):
             await rclone_serve_booter()
         elif data[2] in ["BASE_URL", "BASE_URL_PORT"]:
             await _restart_web_server()
+        elif data[2] == "RSS_DELAY":
+            add_job()
+        elif data[2] == "RSS_CHAT":
+            if value:
+                try:
+                    scheduler.resume_job("0")
+                except Exception:
+                    pass
+            else:
+                try:
+                    scheduler.pause_job("0")
+                except Exception:
+                    pass
+        elif data[2] == "USER_SESSION_STRING":
+            if TgClient.user:
+                try:
+                    await TgClient.user.stop()
+                except Exception:
+                    pass
+                TgClient.user = None
+            if value:
+                try:
+                    await TgClient.start_user()
+                except Exception as e:
+                    LOGGER.error(f"Failed to start user client: {e}")
+        elif data[2] == "HELPER_TOKENS":
+            if TgClient.helper_bots:
+                await gather(*[h_bot.stop() for h_bot in TgClient.helper_bots.values()])
+                TgClient.helper_bots.clear()
+            if value:
+                try:
+                    await TgClient.start_helper_bots()
+                except Exception as e:
+                    LOGGER.error(f"Failed to start helper bots: {e}")
+        elif data[2] == "DATABASE_URL":
+            await database.disconnect()
+            if value:
+                try:
+                    await database.connect()
+                except Exception as e:
+                    LOGGER.error(f"Failed to connect to new database: {e}")
+        elif data[2] == "TIMEZONE":
+            try:
+                from pytz import timezone as pytz_tz
+                from datetime import datetime
+                from logging import Formatter
+                tz = pytz_tz(value)
+                def changetz(*args):
+                    try:
+                        return datetime.now(tz).timetuple()
+                    except Exception:
+                        from time import localtime
+                        return localtime()
+                Formatter.converter = changetz
+            except Exception as e:
+                LOGGER.error(f"Failed to update timezone: {e}")
+        await database.update_config({data[2]: value})
     elif data[1] == "syncqbit":
         handler_dict[chat_id] = False
         await query.answer(
@@ -1041,6 +1095,8 @@ async def send_bot_settings(_, message):
 
 
 async def load_config():
+    old_config = Config.get_all()
+
     Config.load()
     if Config.DATABASE_URL:
         await database.connect()
@@ -1056,25 +1112,92 @@ async def load_config():
     index_urls.clear()
     await update_variables()
 
-    if Config.RSS_CHAT:
-        try:
-            scheduler.resume_job("0")
-        except Exception:
-            pass
-    else:
-        try:
-            scheduler.pause_job("0")
-        except Exception:
-            pass
+    new_config = Config.get_all()
 
-    if Config.UNIVERSAL_MAX_TASKS > 0:
-        from bot.modules.rss import add_shared_tasks_refresh_job
-        add_shared_tasks_refresh_job()
-    else:
-        try:
-            scheduler.remove_job("shared_tasks_refresh")
-        except Exception:
-            pass
+    for key, value in new_config.items():
+        old_val = old_config.get(key)
+        if old_val != value:
+            LOGGER.info("Change var %s = %s: %s", key, value.__class__.__name__.upper(), value)
+            if key in ["SEARCH_PLUGINS", "SEARCH_API_LINK"]:
+                await initiate_search_tools()
+            elif key in ["QUEUE_ALL", "QUEUE_DOWNLOAD", "QUEUE_UPLOAD"]:
+                await start_from_queued()
+            elif key in [
+                "RCLONE_SERVE_URL",
+                "RCLONE_SERVE_PORT",
+                "RCLONE_SERVE_USER",
+                "RCLONE_SERVE_PASS",
+            ]:
+                await rclone_serve_booter()
+            elif key in ["JD_EMAIL", "JD_PASS"]:
+                await jdownloader.boot()
+            elif key in ["BASE_URL", "BASE_URL_PORT"]:
+                await _restart_web_server()
+            elif key == "RSS_DELAY":
+                add_job()
+            elif key == "RSS_CHAT":
+                if value:
+                    try:
+                        scheduler.resume_job("0")
+                    except Exception:
+                        pass
+                else:
+                    try:
+                        scheduler.pause_job("0")
+                    except Exception:
+                        pass
+            elif key == "USER_SESSION_STRING":
+                if TgClient.user:
+                    try:
+                        await TgClient.user.stop()
+                    except Exception:
+                        pass
+                    TgClient.user = None
+                if value:
+                    try:
+                        await TgClient.start_user()
+                    except Exception as e:
+                        LOGGER.error(f"Failed to start user client: {e}")
+            elif key == "HELPER_TOKENS":
+                if TgClient.helper_bots:
+                    await gather(*[h_bot.stop() for h_bot in TgClient.helper_bots.values()])
+                    TgClient.helper_bots.clear()
+                if value:
+                    try:
+                        await TgClient.start_helper_bots()
+                    except Exception as e:
+                        LOGGER.error(f"Failed to start helper bots: {e}")
+            elif key == "DATABASE_URL":
+                await database.disconnect()
+                if value:
+                    try:
+                        await database.connect()
+                    except Exception as e:
+                        LOGGER.error(f"Failed to connect to new database: {e}")
+            elif key == "TIMEZONE":
+                try:
+                    from pytz import timezone as pytz_tz
+                    from datetime import datetime
+                    from logging import Formatter
+                    tz = pytz_tz(value)
+                    def changetz(*args):
+                        try:
+                            return datetime.now(tz).timetuple()
+                        except Exception:
+                            from time import localtime
+                            return localtime()
+                    Formatter.converter = changetz
+                except Exception as e:
+                    LOGGER.error(f"Failed to update timezone: {e}")
+            elif key == "UNIVERSAL_MAX_TASKS":
+                if value > 0:
+                    from bot.modules.rss import add_shared_tasks_refresh_job
+                    add_shared_tasks_refresh_job()
+                else:
+                    try:
+                        scheduler.remove_job("shared_tasks_refresh")
+                    except Exception:
+                        pass
 
     if not await aiopath.exists("accounts"):
         Config.USE_SERVICE_ACCOUNTS = False
