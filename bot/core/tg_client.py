@@ -31,13 +31,14 @@ class TgClient:
         kwargs["parse_mode"] = enums.ParseMode.HTML
         kwargs["in_memory"] = True
         for param, value in {
-            "max_concurrent_transmissions": 1000,
             "workers": 1000,
             "skip_updates": False,
         }.items():
             if param in signature(Client.__init__).parameters:
                 kwargs[param] = value
-        return Client(*args, **kwargs)
+        client = Client(*args, **kwargs)
+        client.max_concurrent_transmissions = 1000
+        return client
 
     @classmethod
     async def start_hclient(cls, no, b_token):
