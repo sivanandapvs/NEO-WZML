@@ -31,7 +31,8 @@ class TgClient:
         kwargs["parse_mode"] = enums.ParseMode.HTML
         kwargs["in_memory"] = True
         for param, value in {
-            "max_concurrent_transmissions": 3,
+            "max_concurrent_transmissions": 1000,
+            "workers": 1000,
             "skip_updates": False,
         }.items():
             if param in signature(Client.__init__).parameters:

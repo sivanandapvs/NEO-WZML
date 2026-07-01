@@ -474,17 +474,6 @@ async def edit_variable(_, message, pre_message, key):
         await _restart_web_server()
     elif key == "RSS_DELAY":
         add_job()
-    elif key == "RSS_CHAT":
-        if value:
-            try:
-                scheduler.resume_job("0")
-            except Exception:
-                pass
-        else:
-            try:
-                scheduler.pause_job("0")
-            except Exception:
-                pass
     elif key == "USER_SESSION_STRING":
         if TgClient.user:
             try:
@@ -840,17 +829,6 @@ async def edit_bot_settings(client, query):
             await _restart_web_server()
         elif data[2] == "RSS_DELAY":
             add_job()
-        elif data[2] == "RSS_CHAT":
-            if value:
-                try:
-                    scheduler.resume_job("0")
-                except Exception:
-                    pass
-            else:
-                try:
-                    scheduler.pause_job("0")
-                except Exception:
-                    pass
         elif data[2] == "USER_SESSION_STRING":
             if TgClient.user:
                 try:
@@ -1135,17 +1113,6 @@ async def load_config():
                 await _restart_web_server()
             elif key == "RSS_DELAY":
                 add_job()
-            elif key == "RSS_CHAT":
-                if value:
-                    try:
-                        scheduler.resume_job("0")
-                    except Exception:
-                        pass
-                else:
-                    try:
-                        scheduler.pause_job("0")
-                    except Exception:
-                        pass
             elif key == "USER_SESSION_STRING":
                 if TgClient.user:
                     try:

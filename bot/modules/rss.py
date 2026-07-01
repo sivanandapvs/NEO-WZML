@@ -671,11 +671,8 @@ Timeout: 60 sec. Argument -c for command and arguments
 async def rss_monitor():
     chat = Config.RSS_CHAT
     if not chat:
-        LOGGER.warning("RSS_CHAT not added! Pausing rss job...")
-        try:
-            scheduler.pause_job("0")
-        except Exception:
-            pass
+        LOGGER.warning("RSS_CHAT not added! Shutting down rss scheduler...")
+        scheduler.shutdown(wait=False)
         return
     if len(rss_dict) == 0:
         scheduler.pause()
@@ -833,11 +830,6 @@ def add_job():
         next_run_time=datetime.now() + timedelta(seconds=20),
         replace_existing=True,
     )
-    if not Config.RSS_CHAT:
-        try:
-            scheduler.pause_job("0")
-        except Exception:
-            pass
 
 
 async def refresh_shared_tasks_timestamps():
